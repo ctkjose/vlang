@@ -3683,7 +3683,10 @@ fn (mut p Parser) module_decl() ast.Module {
 		p.attributes()
 	}
 	module_attrs << p.attrs
+
 	mut name := 'main'
+	mut full_name := name
+
 	mut module_pos := token.Pos{}
 	mut name_pos := token.Pos{}
 	mut mod_node := ast.Module{}
@@ -3725,7 +3728,11 @@ fn (mut p Parser) module_decl() ast.Module {
 		}
 		module_pos = attrs_pos.extend(name_pos)
 	}
-	full_name := util.qualify_module(p.pref, name, p.file_path)
+
+	full_name, _, _ = util.resolve_module(p.pref, name, p.file_path, true)
+	// full_name := util.qualify_module(p.pref, name, p.file_path) @CTK
+	// println('> Module ${name}=${full_name} in "${p.file_path}') @CTK
+
 	p.mod = full_name
 	p.builtin_mod = p.mod == 'builtin'
 	mod_node = ast.Module{
@@ -3775,6 +3782,149 @@ fn (mut p Parser) module_decl() ast.Module {
 }
 
 fn (mut p Parser) import_stmt() ast.Import {
+	import_pos := p.tok.pos()
+	p.check(.key_import)
+
+	mut import_name := ''
+	mut mod_alias := ''
+	mut mod_name := ''
+	mut mod_name_arr := []string{}
+
+	mut has_error := 0
+
+	mut pos := p.tok.pos()
+	mut alias_pos := p.tok.pos()
+	mut smt_pos := import_pos.extend(pos)
+
+	//! import_node, created empty
+	mut import_node := ast.Import{
+		pos: import_pos.extend(pos)
+	}
+
+	if p.tok.kind == .lpar {
+		p.error_with_pos('`import()` has been deprecated, use `import x` instead', smt_pos)
+		return import_node
+	}
+	import_name = p.check_name()
+	if import_name == '' {
+		p.error_with_pos('import name can not be empty', smt_pos)
+		return import_node
+	}
+
+	mod_name_arr << import_name
+	if import_pos.line_nr != pos.line_nr {
+		p.error_with_pos('`import` statements must be a single line', smt_pos)
+		return import_node
+	}
+
+	mod_alias = mod_name_arr[0]
+	for p.tok.kind == .dot {
+		p.next()
+		alias_pos = p.tok.pos()
+
+		if p.tok.kind != .name {
+			has_error += 1
+			p.error_with_pos('module syntax error, please use `x.y.z`', alias_pos)
+			break
+		}
+		if import_pos.line_nr != alias_pos.line_nr {
+			has_error += 1
+			p.error_with_pos('`import` and `submodule` must be at same line', alias_pos)
+			break
+		}
+
+		mod_alias = p.check_name()
+
+		pos = pos.extend(alias_pos)
+		smt_pos = smt_pos.extend(alias_pos)
+
+		mod_name_arr << mod_alias
+	}
+
+	import_name = mod_name_arr.join('.')
+	mod_alias = mod_name_arr.last()
+
+	if has_error > 0 {
+		return ast.Import{
+			source_name: import_name
+			pos:         smt_pos
+			mod_pos:     pos
+			alias_pos:   alias_pos
+			mod:         import_name
+			alias:       mod_alias
+		}
+	}
+
+	// mod_name = import_node.mod
+	mod_name, _, _ = util.resolve_module(p.pref, import_name, p.file_path, false)
+
+	mut pos_t := p.tok.pos()
+	if p.tok.kind == .key_as {
+		p.next()
+
+		alias_pos = p.tok.pos()
+		smt_pos = smt_pos.extend(alias_pos)
+
+		mod_alias = p.check_name()
+
+		if mod_alias == mod_name_arr.last() {
+			has_error += 1
+			p.error_with_pos('import alias `${mod_name} as ${mod_alias}` is redundant',
+				p.prev_tok.pos())
+		}
+	}
+
+	import_node = ast.Import{
+		source_name: import_name
+		pos:         smt_pos
+		mod_pos:     pos
+		alias_pos:   alias_pos
+		mod:         mod_name
+		alias:       mod_alias
+	}
+
+	if has_error > 0 {
+		return import_node
+	}
+
+	if p.tok.kind == .lcbr { // import module { fn1, Type2 } syntax
+		mut initial_syms_pos := p.tok.pos()
+		p.import_syms(mut import_node)
+		initial_syms_pos = initial_syms_pos.extend(p.tok.pos())
+
+		import_node = ast.Import{
+			...import_node
+			source_name: import_name
+			syms_pos:    initial_syms_pos
+			pos:         import_node.pos.extend(initial_syms_pos)
+		}
+	}
+
+	pos_t = p.tok.pos()
+	if import_pos.line_nr == pos_t.line_nr {
+		if p.tok.kind !in [.lcbr, .eof, .comment, .semicolon, .key_import] {
+			p.error_with_pos('cannot import multiple modules at a time', pos_t)
+			return import_node
+		}
+	}
+	import_node.comments = p.eat_comments(same_line: true)
+	import_node.next_comments = p.eat_comments(follow_up: true)
+
+	// println('Import ${import_name} => ${mod_name}  as ${mod_alias}')
+	p.imports[mod_alias] = mod_name
+
+	if p.tok.kind == .semicolon {
+		p.check(.semicolon)
+	}
+
+	// if mod_name !in p.table.imports {
+	p.table.imports << mod_name
+	p.ast_imports << import_node
+	// }
+	return import_node
+}
+
+fn (mut p Parser) import_stmt_orig() ast.Import {
 	import_pos := p.tok.pos()
 	p.check(.key_import)
 	mut pos := p.tok.pos()

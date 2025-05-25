@@ -170,6 +170,7 @@ pub fn (mut b Builder) parse_imports() {
 		util.timing_measure(@METHOD)
 	}
 	mut done_imports := []string{}
+
 	if b.pref.is_vsh {
 		done_imports << 'os'
 	}
@@ -189,10 +190,14 @@ pub fn (mut b Builder) parse_imports() {
 			done_imports << file.mod.name
 		}
 	}
+
+	mut import_path := ''
 	// Note: b.parsed_files is appended in the loop,
 	// so we can not use the shorter `for in` form.
 	for i := 0; i < b.parsed_files.len; i++ {
 		ast_file := b.parsed_files[i]
+		// println('parse_imports()[${i}]:${ast_file.mod.name}:${ast_file.mod.short_name}:${ast_file.path}')
+
 		b.path_invalidates_mods[ast_file.path] << ast_file.mod.name
 		if ast_file.mod.name != 'builtin' {
 			b.mod_invalidates_paths['builtin'] << ast_file.path
@@ -207,16 +212,21 @@ pub fn (mut b Builder) parse_imports() {
 					ast_file.path, imp.pos)
 				break
 			}
-			if mod in done_imports {
-				continue
-			}
-			import_path := b.find_module_path(mod, ast_file.path) or {
-				// v.parsers[i].error_with_token_index('cannot import module "$mod" (not found)', v.parsers[i].import_ast.get_import_tok_idx(mod))
-				// break
-				b.parsed_files[i].errors << b.error_with_pos('cannot import module "${mod}" (not found)',
+
+			_, import_path, _ = util.resolve_module(b.pref, mod, ast_file.path, false)
+
+			if import_path.len == 0 {
+				b.parsed_files[i].errors << b.error_with_pos('cannot import module "${mod}" (not found) ${import_path}',
 					ast_file.path, imp.pos)
 				break
 			}
+
+			if import_path in done_imports {
+				// println('@parsed_files already parsed ${imp.mod} from "${import_path}"') //@CTK
+				continue
+			}
+
+			// println('@parsed_files Parse ${imp.mod}')
 			v_files := b.v_files_from_dir(import_path)
 			if v_files.len == 0 {
 				// v.parsers[i].error_with_token_index('cannot import module "$mod" (no .v files in "$import_path")', v.parsers[i].import_ast.get_import_tok_idx(mod))
@@ -224,25 +234,34 @@ pub fn (mut b Builder) parse_imports() {
 					ast_file.path, imp.pos)
 				continue
 			}
-			// eprintln('>> ast_file.path: $ast_file.path , done: $done_imports, `import $mod` => $v_files')
+
+			done_imports << import_path
+
 			// Add all imports referenced by these libs
 			parsed_files := parser.parse_files(v_files, mut b.table, b.pref)
-			for file in parsed_files {
+
+			outer: for file in parsed_files {
 				mut name := file.mod.name
 				if name == '' {
 					name = file.mod.short_name
 				}
+
+				if b.pref.is_verbose {
+					eprintln('> ${@FN:-15}: ${imp.mod:-18} | include_path: ${file.path}')
+				}
+
 				sname := name.all_after_last('.')
 				smod := mod.all_after_last('.')
 				if sname != smod {
-					msg := 'bad module definition: ${ast_file.path} imports module "${mod}" but ${file.path} is defined as module `${name}`'
+					msg := 'bad module definition: ${ast_file.path} imports module "${mod}" but ${file.path} is defined as module ${name}'
 					b.parsed_files[i].errors << b.error_with_pos(msg, ast_file.path, imp.pos)
 				}
 			}
 			b.parsed_files << parsed_files
-			done_imports << mod
+			// done_imports << mod
 		}
 	}
+
 	b.resolve_deps()
 	$if trace_parsed_files ? {
 		b.show_parsed_files()
