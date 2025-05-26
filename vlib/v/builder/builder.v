@@ -188,6 +188,7 @@ pub fn (mut b Builder) parse_imports() {
 	for file in b.parsed_files {
 		if file.mod.name != 'main' && file.mod.name !in done_imports {
 			done_imports << file.mod.name
+			//done_imports << file.path
 		}
 	}
 
@@ -213,17 +214,17 @@ pub fn (mut b Builder) parse_imports() {
 				break
 			}
 
+			if mod in done_imports {
+				// println('@parsed_files already parsed ${imp.mod}') //@CTK
+				continue
+			}
+
 			_, import_path, _ = util.resolve_module(b.pref, mod, ast_file.path, false)
 
 			if import_path.len == 0 {
 				b.parsed_files[i].errors << b.error_with_pos('cannot import module "${mod}" (not found) ${import_path}',
 					ast_file.path, imp.pos)
 				break
-			}
-
-			if import_path in done_imports {
-				// println('@parsed_files already parsed ${imp.mod} from "${import_path}"') //@CTK
-				continue
 			}
 
 			// println('@parsed_files Parse ${imp.mod}')
@@ -235,19 +236,19 @@ pub fn (mut b Builder) parse_imports() {
 				continue
 			}
 
-			done_imports << import_path
+
 
 			// Add all imports referenced by these libs
 			parsed_files := parser.parse_files(v_files, mut b.table, b.pref)
 
-			outer: for file in parsed_files {
+			for file in parsed_files {
 				mut name := file.mod.name
 				if name == '' {
 					name = file.mod.short_name
 				}
 
 				if b.pref.is_verbose {
-					eprintln('> ${@FN:-15}: ${imp.mod:-18} | include_path: ${file.path}')
+					eprintln('> 3${@FN:-15}: ${imp.mod:-18} | include_path: ${file.path}')
 				}
 
 				sname := name.all_after_last('.')
@@ -258,7 +259,7 @@ pub fn (mut b Builder) parse_imports() {
 				}
 			}
 			b.parsed_files << parsed_files
-			// done_imports << mod
+			done_imports << mod
 		}
 	}
 

@@ -3730,8 +3730,8 @@ fn (mut p Parser) module_decl() ast.Module {
 	}
 
 	full_name, _, _ = util.resolve_module(p.pref, name, p.file_path, true)
-	// full_name := util.qualify_module(p.pref, name, p.file_path) @CTK
-	// println('> Module ${name}=${full_name} in "${p.file_path}') @CTK
+	// full_name := util.qualify_module(p.pref, name, p.file_path) //@CTK
+	//println('> Module ${name}=${full_name} in "${p.file_path}') //@CTK
 
 	p.mod = full_name
 	p.builtin_mod = p.mod == 'builtin'
@@ -3807,13 +3807,13 @@ fn (mut p Parser) import_stmt() ast.Import {
 	}
 	import_name = p.check_name()
 	if import_name == '' {
-		p.error_with_pos('import name can not be empty', smt_pos)
+		p.error_with_pos('import name can not be empty', pos)
 		return import_node
 	}
 
 	mod_name_arr << import_name
 	if import_pos.line_nr != pos.line_nr {
-		p.error_with_pos('`import` statements must be a single line', smt_pos)
+		p.error_with_pos('`import` statements must be a single line', pos)
 		return import_node
 	}
 

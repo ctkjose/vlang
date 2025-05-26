@@ -8,11 +8,32 @@ import v.pref
 const place_is_std = 1
 const place_is_prj = 2
 
-const mod_file_stop_paths = ['.git', '.hg', '.svn', '.v.mod.stop']
+const mod_file_stop_paths = ['v.mod', '.git', '.hg', '.svn', '.v.mod.stop']
 
 @[if trace_util_qualify ?]
 fn trace_qualify(callfn string, mod string, base_path string, action string, detail string) {
 	eprintln('> ${callfn:-15}: ${mod:-18} | base_path: ${base_path} | ${action:-14} | ${detail}')
+}
+
+@[if debug_mod_resolve ?]
+fn debug_qualify(is_verbose bool, mod string, detail string) {
+	if !is_verbose { return }
+	eprintln('> module_resolve( ${mod} ) ${detail}')
+}
+
+const qmn_internal_cache = qmn_init_cache()
+
+@[heap]
+pub struct ModuleQMNCache {
+mut:
+	items map[string][]string
+}
+
+fn qmn_init_cache() &ModuleQMNCache {
+	return &ModuleQMNCache{}
+}
+fn qmn_get_cache() &ModuleQMNCache {
+	return qmn_internal_cache
 }
 
 // mod_resolve() resolves a module name to its folder, locates a
@@ -22,13 +43,15 @@ fn trace_qualify(callfn string, mod string, base_path string, action string, det
 // Where a root folder is @vlib, @vmodules, and the folder with the file
 // getting compiled.
 //
-// returns (qualified_mod_name, mod_directory, vmod_file)
+// returns (qualified_mod_name, mod_directory, mod_vmod_file)
 //
 pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, is_module bool) (string, string, string) {
 	mut curr_dir := os.getwd()
-	mut vlib_path := pref_.vlib
+	//mut vlib_path := pref_.vlib
 
-	// we use pref_.path for the project root
+	mut cache := qmn_get_cache()
+
+	// We use pref_.path for the project root
 	mut prj_path := if pref_.path.len > 0 && pref_.path != '-' {
 		pref_.path
 	} else {
@@ -43,172 +66,186 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		prj_path
 	}
 
+	if prj_path#[-1..] == os.path_separator {
+		prj_path = prj_path#[-1..]
+	}
+
 	mut file_path := os.real_path(os.dir(file_path_in))
 	mut file_dir := if !os.is_dir(file_path) {
 		os.dir(file_path)
 	} else {
 		file_path
 	}
-	mut file_parent_dir := os.dir(file_dir)
+
 
 	//@ctk: Should we add @vlib and @vmodules if not in lookup_path?
 	// Look in standard locations...
 	mut std_search_paths := pref_.lookup_path.clone()
 
-	// Paths where we stop searching
-	mut stop_roots := std_search_paths.clone()
-	stop_roots << prj_dir
 	// Look relative to project or parsed file
-	mut prj_search_paths := [file_dir, file_parent_dir]
+	mut prj_search_paths := [prj_dir]
+
+	if os.exists(os.join_path(prj_dir, 'modules')) {
+		prj_search_paths << os.join_path(prj_dir, 'modules')
+	}
+
+	for a_path in std_search_paths {
+		if prj_dir.starts_with(a_path) {
+			prj_search_paths << os.dir(prj_dir)
+			break
+		}
+	}
 
 	if prj_dir != file_dir {
-		prj_search_paths << prj_dir
+		prj_search_paths << file_dir
+
+		if os.exists(os.join_path(file_dir, 'modules')) {
+			prj_search_paths << os.join_path(file_dir, 'modules')
+		}
 	}
 
-	// std_search_paths = std_search_paths.filter( it == pref_.vlib )
-
-	if os.exists(os.join_path(file_dir, 'modules')) {
-		prj_search_paths << os.join_path(file_dir, 'modules')
-	}
+	//allow sibling resolution
+	prj_search_paths << os.dir(file_dir)
 
 	mut all_search_paths := std_search_paths.clone()
 	all_search_paths << prj_search_paths
 
-	mut mod_root := ''
-
-	mut vmod_file := ''
+	mut mod_anchor := ''
+	mut mod_vmod_file := ''
 	mut mod_dir := ''
-
 	mut mod_name := mod
+
 	mod_path := mod.replace('.', os.path_separator)
 
-	mut mod_idx := 0 // track
-
-	// println('resolve_module(${mod}, ${file_path}, ${is_module})')
-	// println(all_search_paths)
-
-	trace_qualify(@FN, mod, file_path, 'in', all_search_paths.join('; '))
-	trace_qualify(@FN, mod, file_path, 'prj.path', prj_dir)
 	if is_module {
 		mod_dir = file_dir
-		mod_root = file_parent_dir
+		mod_anchor = os.dir(file_dir)
 
-		if mod == 'main' {
+		//debug_qualify(pref_.is_verbose, mod, '@module = true')
+
+
+		if mod == 'main' || mod != os.base(file_dir) {
+			if pref_.is_verbose {
+				eprintln('> module_resolve( ${mod} ) qmn "${mod}" at "${mod_dir}", v.mod="${mod_vmod_file}"')
+			}
 			return mod, mod_dir, ''
 		}
 
-		trace_qualify(@FN, mod, file_path, 'dir', mod_dir)
-
-		stop_roots << file_parent_dir
+		for search_path in all_search_paths {
+			if mod_dir.starts_with(search_path) {
+				mod_anchor = search_path
+				break
+			}
+		}
 	} else {
 		for search_path in all_search_paths {
 			mut try_path := os.join_path_single(search_path, mod_path)
 
-			trace_qualify(@FN, mod, file_path, 'try', try_path)
+			debug_qualify(pref_.is_verbose, mod, 'tried "${search_path}" + "${mod_path}"')
+
 
 			if !os.is_dir(try_path) || !os.exists(try_path) {
 				continue
 			}
-			// println(' resolve_module(${mod}) found=${search_path}')
 
 			mod_dir = try_path
-			mod_root = search_path // what root we found it
-			trace_qualify(@FN, mod, file_path, 'dir', try_path)
+			mod_anchor = search_path // what root we found it
+
 			break
 		}
 	}
+
+	if mod_dir in cache.items {
+		m := cache.items[mod_dir] or { ['', '', ''] }
+
+		if pref_.is_verbose {
+			eprintln('> module_resolve( ${mod} ) qmn "${m[0]}" at "${m[1]}", v.mod="${m[2]}" (cache)')
+		}
+
+		return m[0], m[1], m[2]
+	}
+
+	if pref_.is_verbose {
+		eprintln('> module_resolve( ${mod} ) from "${file_path_in}"')
+		debug_qualify(pref_.is_verbose, mod, 'pref.path = "${prj_dir}"')
+
+	}
+
+	if pref_.is_verbose {
+		eprintln('> module_resolve(${mod}, ${file_path}) mod.dir = "${mod_dir}"')
+	}
+
 
 	if mod_dir.len == 0 {
+		if pref_.is_verbose {
+			eprintln('> module_resolve( ${mod} ) qmn "${mod}" at "${mod_dir}", v.mod="${mod_vmod_file}"')
+		}
+
 		return mod, '', ''
 	}
+	debug_qualify(pref_.is_verbose, mod, 'anchor = "${mod_anchor}"')
 
-	in_vlib := if mod_root.len >= vlib_path.len && mod_root[0..vlib_path.len] == vlib_path {
-		true
-	} else {
-		false
+	// Fine tune the anchor
+	if mod_dir.starts_with(prj_dir) {
+		//we are executing something inside one of the standard paths
+		//change context to the project
+		//mod_anchor = prj_dir
 	}
 
-	if in_vlib {
-		// force relative to vlib
-		mod_name = mod_dir[vlib_path.len + 1..]
-	} else {
-		mod_name = mod_dir[mod_root.len + 1..]
+	//mut in_std_path := true
+	mut prj_anchor := ''
+
+	if !(mod_anchor in std_search_paths) {
+		// include anchor folder
+		//in_std_path = false
+		prj_anchor = os.base(mod_anchor)
+
+		//move anchor up, to make sure we include base
+		mod_anchor = mod_anchor.substr(0, mod_anchor.len - (prj_anchor.len + 1))
 	}
 
-	// QMN is always relative to search_path
-	mod_name = mod_name.replace(os.path_separator, '.')
-	trace_qualify(@FN, mod, file_path, 'qualified.name', mod_name)
+	debug_qualify(pref_.is_verbose, mod, 'anchor = "${mod_anchor}"')
 
-	if in_vlib {
-		// don't look for v.mod
-		return mod_name, mod_dir, ''
-	}
-	// Find closest v.mod
-	path_parts := mod_dir.split(os.path_separator)
+	// QMN is always anchored...
+	///mut anchored_path := mod_dir.replace(mod_anchor, '')
+	///debug_qualify(pref_.is_verbose, mod, 'anchored_path = "${anchored_path}"')
 
-	// Find the best root
-	mut stop_root := file_parent_dir
-	for a_root_path in stop_roots {
-		if mod_dir.len >= a_root_path.len && mod_dir[0..a_root_path.len] == a_root_path {
-			stop_root = a_root_path
+	// QMN will only change if a stop location is found somewhere inside mod_anchor
+	// only search from current anchor, reduce the number of segments
+	path_parts := mod_dir.replace(mod_anchor, '').split(os.path_separator)
+	mut anchor_idx := 1
+	for i := path_parts.len-1; i > 0; i-- {
+		anchor_idx = i
+
+		stop_location := mod_anchor + os.path_separator + path_parts[1..i+1].join(os.path_separator)
+
+		if path_parts[i] == 'modules' {
+			anchor_idx += 1 //rewind
+			debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
 			break
 		}
-	}
 
-	trace_qualify(@FN, mod, file_path, 'stop.root', stop_root)
-
-	for i := path_parts.len; i > 0; i-- {
-		try_path := path_parts[0..i].join(os.path_separator)
-		mod_idx = i - 1
-
-		mut reched_root := false
-
-		if stop_root == try_path {
-			mod_idx += 1
-
-			reched_root = true
-		}
-
-		if files := os.ls(try_path) {
-			if 'v.mod' in files {
-				vmod_file = os.join_path_single(try_path, 'v.mod')
-				trace_qualify(@FN, mod, file_path, 'v.mod', vmod_file)
-				reched_root = true
-
-				// allow Go style src folder...
-				if os.base(mod_dir) == 'src' {
-					trace_qualify(@FN, mod, file_path, 'go.hack', 'using repo.src')
-					reched_root = false
-
-					mod_name = path_parts#[mod_idx..-1].join('.')
-					trace_qualify(@FN, mod, file_path, 'qualified.name', mod_name)
-					break
-				}
-			} else {
-				for s_dir in mod_file_stop_paths {
-					if s_dir in files {
-						trace_qualify(@FN, mod, file_path, 'stop', '${s_dir} at ${try_path}')
-						reched_root = true
-						break
-					}
-				}
-			}
-		}
-
-		if reched_root {
-			// println('p=${path_parts#[..mod_idx+1]}=${try_path}')
-
-			if path_parts#[mod_idx..].join('.') != mod_dir {
-				// we stopped at a diff folder, change QMN
-				mod_name = path_parts#[mod_idx..].join('.')
-				trace_qualify(@FN, mod, file_path, 'qualified.name', mod_name)
-			}
-
+		mod_vmod_file = os.join_path_single(stop_location, 'v.mod')
+		if os.exists(mod_vmod_file) {
+			debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
 			break
+		}else{
+			mod_vmod_file = ''
 		}
 	}
 
-	return mod_name, mod_dir, vmod_file
+
+	mod_name = path_parts[anchor_idx..].join('.')
+	if mod_name.len > 0 && mod_name[0..1] == '.' { mod_name[1..] }
+
+	debug_qualify(pref_.is_verbose, mod, 'qmn[] = "${mod_name}"')
+
+	if pref_.is_verbose {
+		eprintln('> module_resolve( ${mod} ) qmn "${mod_name}" at "${mod_dir}", v.mod="${mod_vmod_file}')
+	}
+
+	cache.items[mod_dir] = [mod_name, mod_dir, mod_vmod_file]
+	return mod_name, mod_dir, mod_vmod_file
 }
 
 // 2022-01-30 qualify_import - used by V's parser, to find the full module name of import statements
