@@ -3686,6 +3686,7 @@ fn (mut p Parser) module_decl() ast.Module {
 
 	mut name := 'main'
 	mut full_name := name
+	mut mod_path := ''
 
 	mut module_pos := token.Pos{}
 	mut name_pos := token.Pos{}
@@ -3729,19 +3730,20 @@ fn (mut p Parser) module_decl() ast.Module {
 		module_pos = attrs_pos.extend(name_pos)
 	}
 
-	full_name, _, _ = util.resolve_module(p.pref, name, p.file_path, true)
+	full_name, mod_path, _ = util.resolve_module(p.pref, name, p.file_path, true)
 	// full_name := util.qualify_module(p.pref, name, p.file_path) //@CTK
 	// println('> Module ${name}=${full_name} in "${p.file_path}') //@CTK
 
 	p.mod = full_name
 	p.builtin_mod = p.mod == 'builtin'
 	mod_node = ast.Module{
-		name:       full_name
+		name:		full_name
 		short_name: name
-		attrs:      module_attrs
-		is_skipped: is_skipped
-		pos:        module_pos
-		name_pos:   name_pos
+		attrs:		module_attrs
+		is_skipped:	is_skipped
+		pos:		module_pos
+		name_pos:	name_pos
+		path:	mod_path
 	}
 	if p.tok.kind == .semicolon {
 		p.check(.semicolon)
@@ -3786,6 +3788,7 @@ fn (mut p Parser) import_stmt() ast.Import {
 	p.check(.key_import)
 
 	mut import_name := ''
+	mut mod_path := ''
 	mut mod_alias := ''
 	mut mod_name := ''
 	mut mod_name_arr := []string{}
@@ -3856,7 +3859,7 @@ fn (mut p Parser) import_stmt() ast.Import {
 	}
 
 	// mod_name = import_node.mod
-	mod_name, _, _ = util.resolve_module(p.pref, import_name, p.file_path, false)
+	mod_name, mod_path, _ = util.resolve_module(p.pref, import_name, p.file_path, false)
 
 	mut pos_t := p.tok.pos()
 	if p.tok.kind == .key_as {
@@ -3875,12 +3878,13 @@ fn (mut p Parser) import_stmt() ast.Import {
 	}
 
 	import_node = ast.Import{
-		source_name: import_name
-		pos:         smt_pos
-		mod_pos:     pos
-		alias_pos:   alias_pos
-		mod:         mod_name
-		alias:       mod_alias
+		source_name:	import_name
+		pos:			smt_pos
+		mod_pos:		pos
+		alias_pos:		alias_pos
+		mod:			mod_name
+		alias:			mod_alias
+		path:			mod_path //<- save the location...
 	}
 
 	if has_error > 0 {

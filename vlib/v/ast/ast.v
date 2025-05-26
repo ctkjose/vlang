@@ -330,12 +330,13 @@ pub fn (e &SelectorExpr) root_ident() ?Ident {
 // module declaration
 pub struct Module {
 pub:
-	name       string // encoding.base64
-	short_name string // base64
-	attrs      []Attr
-	pos        token.Pos
-	name_pos   token.Pos // `name` in import name
-	is_skipped bool      // module main can be skipped in single file programs
+	name		string // encoding.base64
+	short_name	string // base64
+	attrs		[]Attr
+	pos			token.Pos
+	name_pos	token.Pos // `name` in import name
+	is_skipped	bool // module main can be skipped in single file programs
+	path 		string //path of module directory
 }
 
 pub struct SemicolonStmt {
@@ -547,6 +548,7 @@ pub mut:
 	syms          []ImportSymbol // the list of symbols in `import {symbol1, symbol2}`
 	comments      []Comment
 	next_comments []Comment
+	path 		string //path of module directory
 }
 
 // import symbol,for import {symbol} syntax
@@ -1566,7 +1568,7 @@ pub:
 	has_len       bool
 	has_cap       bool
 	has_init      bool
-	has_index     bool // true if temp variable index is used	
+	has_index     bool // true if temp variable index is used
 pub mut:
 	exprs        []Expr // `[expr, expr]` or `[expr]Type{}` for fixed array
 	len_expr     Expr   // len: expr

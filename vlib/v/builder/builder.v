@@ -218,8 +218,7 @@ pub fn (mut b Builder) parse_imports() {
 				continue
 			}
 
-			_, import_path, _ = util.resolve_module(b.pref, mod, ast_file.path, false)
-
+			import_path = imp.path
 			if import_path.len == 0 {
 				b.parsed_files[i].errors << b.error_with_pos('cannot import module "${mod}" (not found) ${import_path}',
 					ast_file.path, imp.pos)

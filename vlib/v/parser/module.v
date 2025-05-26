@@ -4,6 +4,7 @@
 module parser
 
 import v.ast
+import v.util
 
 // return true if file being parsed imports `mod`
 fn (p &Parser) known_import(mod string) bool {
@@ -46,11 +47,16 @@ fn (mut p Parser) register_auto_import(alias string) {
 	if alias !in p.imports {
 		p.imports[alias] = alias
 		p.table.imports << alias
+
+		mut import_path := ''
+		_, import_path, _ = util.resolve_module(p.pref, alias, p.pref.path, false)
+
 		node := ast.Import{
 			source_name: alias
 			pos:         p.tok.pos()
 			mod:         alias
 			alias:       alias
+			path:        import_path
 		}
 		p.ast_imports << node
 	}
