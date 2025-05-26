@@ -252,7 +252,8 @@ pub fn (mut c Checker) check(mut ast_file ast.File) {
 			} else {
 				ast_file.imports[j].mod
 			} {
-				c.error('A module `${cmp_mod_name}` was already imported on line ${ast_file.imports[j].mod_pos.line_nr + 1}`.', ast_import.mod_pos)
+				c.error('A module `${cmp_mod_name}` was already imported on line ${
+					ast_file.imports[j].mod_pos.line_nr + 1}`.', ast_import.mod_pos)
 			}
 		}
 	}

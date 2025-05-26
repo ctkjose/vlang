@@ -188,7 +188,6 @@ pub fn (mut b Builder) parse_imports() {
 	for file in b.parsed_files {
 		if file.mod.name != 'main' && file.mod.name !in done_imports {
 			done_imports << file.mod.name
-			//done_imports << file.path
 		}
 	}
 

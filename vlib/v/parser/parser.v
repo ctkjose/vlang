@@ -3731,7 +3731,7 @@ fn (mut p Parser) module_decl() ast.Module {
 
 	full_name, _, _ = util.resolve_module(p.pref, name, p.file_path, true)
 	// full_name := util.qualify_module(p.pref, name, p.file_path) //@CTK
-	//println('> Module ${name}=${full_name} in "${p.file_path}') //@CTK
+	// println('> Module ${name}=${full_name} in "${p.file_path}') //@CTK
 
 	p.mod = full_name
 	p.builtin_mod = p.mod == 'builtin'

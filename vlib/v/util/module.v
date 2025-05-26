@@ -17,7 +17,9 @@ fn trace_qualify(callfn string, mod string, base_path string, action string, det
 
 @[if debug_mod_resolve ?]
 fn debug_qualify(is_verbose bool, mod string, detail string) {
-	if !is_verbose { return }
+	if !is_verbose {
+		return
+	}
 	eprintln('> module_resolve( ${mod} ) ${detail}')
 }
 
@@ -32,6 +34,7 @@ mut:
 fn qmn_init_cache() &ModuleQMNCache {
 	return &ModuleQMNCache{}
 }
+
 fn qmn_get_cache() &ModuleQMNCache {
 	return qmn_internal_cache
 }
@@ -47,7 +50,7 @@ fn qmn_get_cache() &ModuleQMNCache {
 //
 pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, is_module bool) (string, string, string) {
 	mut curr_dir := os.getwd()
-	//mut vlib_path := pref_.vlib
+	// mut vlib_path := pref_.vlib
 
 	mut cache := qmn_get_cache()
 
@@ -77,6 +80,10 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		file_path
 	}
 
+	//Go Quirk
+	if os.base(file_dir) == 'src' {
+		file_dir = os.dir(file_path)
+	}
 
 	//@ctk: Should we add @vlib and @vmodules if not in lookup_path?
 	// Look in standard locations...
@@ -97,15 +104,15 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	}
 
 	if prj_dir != file_dir {
-		prj_search_paths << file_dir
 
 		if os.exists(os.join_path(file_dir, 'modules')) {
 			prj_search_paths << os.join_path(file_dir, 'modules')
 		}
 	}
 
-	//allow sibling resolution
+	// allow sibling resolution
 	prj_search_paths << os.dir(file_dir)
+	println(prj_search_paths)
 
 	mut all_search_paths := std_search_paths.clone()
 	all_search_paths << prj_search_paths
@@ -121,8 +128,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		mod_dir = file_dir
 		mod_anchor = os.dir(file_dir)
 
-		//debug_qualify(pref_.is_verbose, mod, '@module = true')
-
+		// debug_qualify(pref_.is_verbose, mod, '@module = true')
 
 		if mod == 'main' || mod != os.base(file_dir) {
 			if pref_.is_verbose {
@@ -142,7 +148,6 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 			mut try_path := os.join_path_single(search_path, mod_path)
 
 			debug_qualify(pref_.is_verbose, mod, 'tried "${search_path}" + "${mod_path}"')
-
 
 			if !os.is_dir(try_path) || !os.exists(try_path) {
 				continue
@@ -168,13 +173,11 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	if pref_.is_verbose {
 		eprintln('> module_resolve( ${mod} ) from "${file_path_in}"')
 		debug_qualify(pref_.is_verbose, mod, 'pref.path = "${prj_dir}"')
-
 	}
 
 	if pref_.is_verbose {
 		eprintln('> module_resolve(${mod}, ${file_path}) mod.dir = "${mod_dir}"')
 	}
-
 
 	if mod_dir.len == 0 {
 		if pref_.is_verbose {
@@ -187,20 +190,20 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 
 	// Fine tune the anchor
 	if mod_dir.starts_with(prj_dir) {
-		//we are executing something inside one of the standard paths
-		//change context to the project
-		//mod_anchor = prj_dir
+		// we are executing something inside one of the standard paths
+		// change context to the project
+		// mod_anchor = prj_dir
 	}
 
-	//mut in_std_path := true
+	// mut in_std_path := true
 	mut prj_anchor := ''
 
-	if !(mod_anchor in std_search_paths) {
+	if mod_anchor !in std_search_paths {
 		// include anchor folder
-		//in_std_path = false
+		// in_std_path = false
 		prj_anchor = os.base(mod_anchor)
 
-		//move anchor up, to make sure we include base
+		// move anchor up, to make sure we include base
 		mod_anchor = mod_anchor.substr(0, mod_anchor.len - (prj_anchor.len + 1))
 	}
 
@@ -214,29 +217,31 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	// only search from current anchor, reduce the number of segments
 	path_parts := mod_dir.replace(mod_anchor, '').split(os.path_separator)
 	mut anchor_idx := 1
-	for i := path_parts.len-1; i > 0; i-- {
+	for i := path_parts.len - 1; i > 0; i-- {
 		anchor_idx = i
 
-		stop_location := mod_anchor + os.path_separator + path_parts[1..i+1].join(os.path_separator)
+		stop_location := mod_anchor + os.path_separator + path_parts[1..i +
+			1].join(os.path_separator)
 
 		if path_parts[i] == 'modules' {
-			anchor_idx += 1 //rewind
-			debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
-			break
+			//anchor_idx += 1 // rewind
+			//debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
+			//break
 		}
 
 		mod_vmod_file = os.join_path_single(stop_location, 'v.mod')
 		if os.exists(mod_vmod_file) {
 			debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
 			break
-		}else{
+		} else {
 			mod_vmod_file = ''
 		}
 	}
 
-
 	mod_name = path_parts[anchor_idx..].join('.')
-	if mod_name.len > 0 && mod_name[0..1] == '.' { mod_name[1..] }
+	if mod_name.len > 0 && mod_name[0..1] == '.' {
+		mod_name[1..]
+	}
 
 	debug_qualify(pref_.is_verbose, mod, 'qmn[] = "${mod_name}"')
 
