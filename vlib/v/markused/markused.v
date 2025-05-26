@@ -260,6 +260,10 @@ pub fn mark_used(mut table ast.Table, mut pref_ pref.Preferences, ast_files []&a
 		]
 	}
 
+	if table.gostmts > 0 {
+		all_fn_root_names << 'free'
+	}
+
 	is_noscan_whitelisted := pref_.gc_mode in [.boehm_full_opt, .boehm_incr_opt]
 
 	has_noscan := all_fn_root_names.any(it.contains('noscan')
