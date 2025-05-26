@@ -1200,6 +1200,7 @@ fn (mut p Parser) spawn_expr() ast.SpawnExpr {
 	call_expr.is_return_used = true
 	pos := spos.extend(p.prev_tok.pos())
 	p.register_auto_import('sync.threads')
+	p.register_auto_import('builtin.free')
 	p.table.gostmts++
 	return ast.SpawnExpr{
 		call_expr: call_expr
