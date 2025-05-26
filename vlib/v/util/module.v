@@ -80,7 +80,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		file_path
 	}
 
-	//Go Quirk
+	// Go Quirk
 	if os.base(file_dir) == 'src' {
 		file_dir = os.dir(file_path)
 	}
@@ -104,7 +104,6 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	}
 
 	if prj_dir != file_dir {
-
 		if os.exists(os.join_path(file_dir, 'modules')) {
 			prj_search_paths << os.join_path(file_dir, 'modules')
 		}
@@ -224,9 +223,9 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 			1].join(os.path_separator)
 
 		if path_parts[i] == 'modules' {
-			//anchor_idx += 1 // rewind
-			//debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
-			//break
+			// anchor_idx += 1 // rewind
+			// debug_qualify(pref_.is_verbose, mod, 'anchored at "${stop_location}"')
+			// break
 		}
 
 		mod_vmod_file = os.join_path_single(stop_location, 'v.mod')

@@ -235,8 +235,6 @@ pub fn (mut b Builder) parse_imports() {
 				continue
 			}
 
-
-
 			// Add all imports referenced by these libs
 			parsed_files := parser.parse_files(v_files, mut b.table, b.pref)
 
