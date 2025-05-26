@@ -111,7 +111,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 
 	// allow sibling resolution
 	prj_search_paths << os.dir(file_dir)
-	println(prj_search_paths)
+	//println(prj_search_paths)
 
 	mut all_search_paths := std_search_paths.clone()
 	all_search_paths << prj_search_paths
