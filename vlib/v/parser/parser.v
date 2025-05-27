@@ -3737,13 +3737,13 @@ fn (mut p Parser) module_decl() ast.Module {
 	p.mod = full_name
 	p.builtin_mod = p.mod == 'builtin'
 	mod_node = ast.Module{
-		name:		full_name
+		name:       full_name
 		short_name: name
-		attrs:		module_attrs
-		is_skipped:	is_skipped
-		pos:		module_pos
-		name_pos:	name_pos
-		path:	mod_path
+		attrs:      module_attrs
+		is_skipped: is_skipped
+		pos:        module_pos
+		name_pos:   name_pos
+		path:       mod_path
 	}
 	if p.tok.kind == .semicolon {
 		p.check(.semicolon)
@@ -3878,13 +3878,13 @@ fn (mut p Parser) import_stmt() ast.Import {
 	}
 
 	import_node = ast.Import{
-		source_name:	import_name
-		pos:			smt_pos
-		mod_pos:		pos
-		alias_pos:		alias_pos
-		mod:			mod_name
-		alias:			mod_alias
-		path:			mod_path //<- save the location...
+		source_name: import_name
+		pos:         smt_pos
+		mod_pos:     pos
+		alias_pos:   alias_pos
+		mod:         mod_name
+		alias:       mod_alias
+		path:        mod_path //<- save the location...
 	}
 
 	if has_error > 0 {
