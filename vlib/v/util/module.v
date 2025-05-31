@@ -65,7 +65,6 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	// Look in standard root locations...
 	mut root_search_paths := pref_.lookup_path.clone()
 
-
 	// <prj_path> is the project root as provided by pref_.path
 	mut prj_path := if pref_.path.len > 0 && pref_.path != '-' {
 		pref_.path
@@ -85,7 +84,6 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		prj_path = prj_path#[-1..]
 	}
 
-
 	mut file_path := os.real_path(file_path_in)
 	mut file_dir := if !os.is_dir(file_path) {
 		os.dir(file_path)
@@ -100,10 +98,8 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		file_dir = os.dir(file_dir)
 	}
 
-
 	// Look relative to project or parsed file
 	mut prj_search_paths := [prj_dir]
-
 
 	if os.exists(os.join_path(prj_dir, 'modules')) {
 		prj_search_paths << os.join_path(prj_dir, 'modules')
@@ -124,13 +120,12 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	///prj_search_paths << os.dir(file_dir) //@CTK disabled per discussion
 	// println(prj_search_paths)
 
-
 	mut all_search_paths := root_search_paths.clone()
 	all_search_paths << prj_search_paths
 
 	// Find the root path to use
 	for a_path in root_search_paths {
-		//Im running a prj inside a root folder, then we can have a sibling
+		// Im running a prj inside a root folder, then we can have a sibling
 		if prj_dir.starts_with(a_path) {
 			prj_search_paths << os.dir(prj_dir)
 			break
@@ -155,28 +150,26 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 				break
 			}
 		}
-	}else{
+	} else {
 		mut p_root_try := ''
 		mut p := ''
 
 		main_loop: for a_path in all_search_paths {
 			p_root_try = a_path
-			for i:=0; i<mod_segs.len; i++ {
-
+			for i := 0; i < mod_segs.len; i++ {
 				p = os.join_path(p_root_try, mod_segs[i])
 				debug_qualify(pref_.is_verbose, mod, 'd_try[${i}][${mod_segs[i]}] "${a_path}" "${p}"')
 
 				if !os.exists(p) {
-					//Try a modules folder...
+					// Try a modules folder...
 					p = os.join_path(p_root_try, 'modules', mod_segs[i])
 					debug_qualify(pref_.is_verbose, mod, 'd_try[${i}] "${a_path}" "${p}"')
 					if !os.exists(p) {
 						break
 					}
-
 				}
 				p_root_try = p
-				if i == mod_segs.len-1 {
+				if i == mod_segs.len - 1 {
 					debug_qualify(pref_.is_verbose, mod, 'd_try_matched "${p_root_try}"')
 					mod_dir = p_root_try
 					mod_anchor = a_path
@@ -188,7 +181,6 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 
 	if mod_dir.len == 0 && pref_.is_verbose {
 		debug_qualify(pref_.is_verbose, mod, 'Error not found...')
-
 	}
 
 	if mod_dir in cache.items {
@@ -272,7 +264,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		mod_name[1..]
 	}
 
-	//mod_name = mod_name.replace('.modules.', '.')
+	// mod_name = mod_name.replace('.modules.', '.')
 	debug_qualify(pref_.is_verbose, mod, 'qmn[] = "${mod_name}"')
 
 	if pref_.is_verbose {

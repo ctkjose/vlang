@@ -197,8 +197,9 @@ pub const assign_tokens = [Kind.assign, .decl_assign, .plus_assign, .minus_assig
 	.left_shift_assign, .unsigned_right_shift_assign, .boolean_and_assign, .boolean_or_assign]
 
 pub const valid_at_tokens = ['@VROOT', '@VMODROOT', '@VEXEROOT', '@FN', '@METHOD', '@MOD', '@STRUCT',
-	'@VEXE', '@FILE', '@FILE_DIR', '@PRJ_DIR', '@LINE', '@COLUMN', '@VHASH', '@VCURRENTHASH', '@VMOD_FILE', '@VMODHASH',
-	'@FILE_LINE', '@LOCATION', '@BUILD_DATE', '@BUILD_TIME', '@BUILD_TIMESTAMP']
+	'@VEXE', '@FILE', '@FILE_DIR', '@PRJ_DIR', '@LINE', '@COLUMN', '@VHASH', '@VCURRENTHASH',
+	'@VMOD_FILE', '@VMODHASH', '@FILE_LINE', '@LOCATION', '@BUILD_DATE', '@BUILD_TIME',
+	'@BUILD_TIMESTAMP']
 
 pub const token_str = build_token_str()
 

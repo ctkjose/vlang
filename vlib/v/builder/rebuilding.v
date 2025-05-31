@@ -247,7 +247,7 @@ fn (mut b Builder) handle_usecache(vexe string) {
 			if imp == 'help' {
 				continue
 			}
-			imp_path := imp_stmt.path //already cached
+			imp_path := imp_stmt.path // already cached
 			if imp_path.len == 0 {
 				verror('cannot import module "${imp}" (not found)')
 				break
