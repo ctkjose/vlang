@@ -218,7 +218,8 @@ fn (mut b Builder) handle_usecache(vexe string) {
 	libs << builtin_obj_path
 	for ast_file in b.parsed_files {
 		if b.pref.is_test && ast_file.mod.name != 'main' {
-			imp_path := b.find_module_path(ast_file.mod.name, ast_file.path) or {
+			imp_path := ast_file.mod.path
+			if imp_path.len == 0 {
 				verror('cannot import module "${ast_file.mod.name}" (not found)')
 				break
 			}
@@ -246,7 +247,8 @@ fn (mut b Builder) handle_usecache(vexe string) {
 			if imp == 'help' {
 				continue
 			}
-			imp_path := b.find_module_path(imp, ast_file.path) or {
+			imp_path := imp_stmt.path //already cached
+			if imp_path.len == 0 {
 				verror('cannot import module "${imp}" (not found)')
 				break
 			}

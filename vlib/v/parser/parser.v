@@ -3687,6 +3687,7 @@ fn (mut p Parser) module_decl() ast.Module {
 	mut name := 'main'
 	mut full_name := name
 	mut mod_path := ''
+	mut vmod_path := ''
 
 	mut module_pos := token.Pos{}
 	mut name_pos := token.Pos{}
@@ -3730,7 +3731,7 @@ fn (mut p Parser) module_decl() ast.Module {
 		module_pos = attrs_pos.extend(name_pos)
 	}
 
-	full_name, mod_path, _ = util.resolve_module(p.pref, name, p.file_path, true)
+	full_name, mod_path, vmod_path = util.resolve_module(p.pref, name, p.file_path, true)
 	// full_name := util.qualify_module(p.pref, name, p.file_path) //@CTK
 	// println('> Module ${name}=${full_name} in "${p.file_path}') //@CTK
 
@@ -3744,6 +3745,7 @@ fn (mut p Parser) module_decl() ast.Module {
 		pos:        module_pos
 		name_pos:   name_pos
 		path:       mod_path
+		vmod_path:  vmod_path
 	}
 	if p.tok.kind == .semicolon {
 		p.check(.semicolon)

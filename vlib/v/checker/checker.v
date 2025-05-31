@@ -5,7 +5,6 @@ module checker
 import os
 import strconv
 import v.ast
-import v.vmod
 import v.token
 import v.pref
 import v.util
@@ -3861,6 +3860,9 @@ fn (mut c Checker) cast_expr(mut node ast.CastExpr) ast.Type {
 }
 
 fn (mut c Checker) at_expr(mut node ast.AtExpr) ast.Type {
+	if node.resolved {
+		return ast.string_type
+	}
 	match node.kind {
 		.fn_name {
 			if c.table.cur_fn == unsafe { nil } {
@@ -3905,6 +3907,15 @@ fn (mut c Checker) at_expr(mut node ast.AtExpr) ast.Type {
 		.file_path {
 			node.val = os.real_path(c.file.path)
 		}
+		.prj_dir {
+			node.val = os.real_path(c.pref.path)
+			if !os.is_dir(node.val) {
+				node.val = os.dir(node.val)
+			}
+		}
+		.file_dir {
+			node.val = os.dir(os.real_path(c.file.path))
+		}
 		.line_nr {
 			node.val = (node.pos.line_nr + 1).str()
 		}
@@ -3938,13 +3949,12 @@ fn (mut c Checker) at_expr(mut node ast.AtExpr) ast.Type {
 		.vmod_file {
 			// cache the vmod content, do not read it many times
 			if c.vmod_file_content.len == 0 {
-				mut mcache := vmod.get_cache()
-				vmod_file_location := mcache.get_by_file(c.file.path)
-				if vmod_file_location.vmod_file.len == 0 {
+				vmod_file_path := c.file.mod.vmod_path
+				if vmod_file_path.len == 0 {
 					c.error('@VMOD_FILE can only be used in projects that have a v.mod file',
 						node.pos)
 				}
-				vmod_content := os.read_file(vmod_file_location.vmod_file) or { '' }
+				vmod_content := os.read_file(vmod_file_path) or { '' }
 				c.vmod_file_content = vmod_content.replace('\r\n', '\n') // normalise EOLs just in case
 			}
 			node.val = c.vmod_file_content
@@ -3956,18 +3966,15 @@ fn (mut c Checker) at_expr(mut node ast.AtExpr) ast.Type {
 			node.val = c.pref.vroot
 		}
 		.vmodroot_path {
-			mut mcache := vmod.get_cache()
-			vmod_file_location := mcache.get_by_file(c.file.path)
-			node.val = os.dir(vmod_file_location.vmod_file)
+			node.val = c.file.mod.path
 		}
 		.vmod_hash {
-			mut mcache := vmod.get_cache()
-			vmod_file_location := mcache.get_by_file(c.file.path)
-			if vmod_file_location.vmod_file.len == 0 {
+			vmod_file_path := c.file.mod.vmod_path
+			if vmod_file_path.len == 0 {
 				c.error('@VMODHASH can only be used in projects that have a v.mod file',
 					node.pos)
 			}
-			hash := version.githash(os.dir(vmod_file_location.vmod_file)) or {
+			hash := version.githash(os.dir(vmod_file_path)) or {
 				c.error(err.msg(), node.pos)
 				''
 			}
@@ -3987,6 +3994,7 @@ fn (mut c Checker) at_expr(mut node ast.AtExpr) ast.Type {
 				node.pos)
 		}
 	}
+	node.resolved = true
 	return ast.string_type
 }
 

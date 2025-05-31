@@ -330,13 +330,14 @@ pub fn (e &SelectorExpr) root_ident() ?Ident {
 // module declaration
 pub struct Module {
 pub:
-	name       string // encoding.base64
-	short_name string // base64
-	attrs      []Attr
-	pos        token.Pos
-	name_pos   token.Pos // `name` in import name
-	is_skipped bool      // module main can be skipped in single file programs
-	path       string    // path of module directory
+	name			string // encoding.base64
+	short_name		string // base64
+	attrs			[]Attr
+	pos				token.Pos
+	name_pos		token.Pos // `name` in import name
+	is_skipped		bool      // module main can be skipped in single file programs
+	path			string    // path of module directory
+	vmod_path		string    // path of v.mod file
 }
 
 pub struct SemicolonStmt {
@@ -2014,6 +2015,7 @@ pub:
 	kind token.AtKind
 pub mut:
 	val string
+	resolved bool
 }
 
 @[minify]

@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT license that can be found in the LICENSE file.
 module type_resolver
 
-import ast
+import v.ast
 import v.token
 import v.util
 

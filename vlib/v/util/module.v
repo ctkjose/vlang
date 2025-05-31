@@ -52,13 +52,25 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	mut curr_dir := os.getwd()
 	// mut vlib_path := pref_.vlib
 
+	mut mod_anchor := ''
+	mut mod_vmod_file := ''
+	mut mod_dir := ''
+
+	mut mod_name := mod
+	mut mod_segs := mod.split('.')
+
 	mut cache := qmn_get_cache()
 
-	// We use pref_.path for the project root
+	//@ctk: Should we add @vlib and @vmodules if not in lookup_path?
+	// Look in standard root locations...
+	mut root_search_paths := pref_.lookup_path.clone()
+
+
+	// <prj_path> is the project root as provided by pref_.path
 	mut prj_path := if pref_.path.len > 0 && pref_.path != '-' {
 		pref_.path
 	} else {
-		// Hack to support relative modules
+		// Hack to support relative modules, specially in REPL
 		curr_dir
 	}
 
@@ -73,7 +85,8 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		prj_path = prj_path#[-1..]
 	}
 
-	mut file_path := os.real_path(os.dir(file_path_in))
+
+	mut file_path := os.real_path(file_path_in)
 	mut file_dir := if !os.is_dir(file_path) {
 		os.dir(file_path)
 	} else {
@@ -82,47 +95,47 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 
 	// Go Quirk
 	if os.base(file_dir) == 'src' {
-		file_dir = os.dir(file_path)
+		// Convert "a/path/to/prj/src" => "a/path/to/prj/"
+		// To be able to find sibling modules "a/path/to/prj/mod1" and "a/path/to/prj/modules/mod1"    f
+		file_dir = os.dir(file_dir)
 	}
 
-	//@ctk: Should we add @vlib and @vmodules if not in lookup_path?
-	// Look in standard locations...
-	mut std_search_paths := pref_.lookup_path.clone()
 
 	// Look relative to project or parsed file
 	mut prj_search_paths := [prj_dir]
+
 
 	if os.exists(os.join_path(prj_dir, 'modules')) {
 		prj_search_paths << os.join_path(prj_dir, 'modules')
 	}
 
-	for a_path in std_search_paths {
-		if prj_dir.starts_with(a_path) {
-			prj_search_paths << os.dir(prj_dir)
-			break
-		}
-	}
+	// RULE: Relative to file parsed...
+	prj_search_paths << file_dir
 
+	// RULE: Allow <rel_file_dir>/modules
 	if prj_dir != file_dir {
 		if os.exists(os.join_path(file_dir, 'modules')) {
 			prj_search_paths << os.join_path(file_dir, 'modules')
 		}
 	}
 
-	// allow sibling resolution
-	prj_search_paths << os.dir(file_dir)
+	// RULE: Allow sibling resolution: "vlib/a/b/file.v" using "import c" instead of "import a.c"
+	// expects it to resolve to "vlib/a/c". This was the case of `vlib/v/type_resolver/type_resolver.v`.
+	///prj_search_paths << os.dir(file_dir) //@CTK disabled per discussion
 	// println(prj_search_paths)
 
-	mut all_search_paths := std_search_paths.clone()
+
+	mut all_search_paths := root_search_paths.clone()
 	all_search_paths << prj_search_paths
 
-	mut mod_anchor := ''
-	mut mod_vmod_file := ''
-	mut mod_dir := ''
-	mut mod_name := mod
-
-	mod_path := mod.replace('.', os.path_separator)
-
+	// Find the root path to use
+	for a_path in root_search_paths {
+		//Im running a prj inside a root folder, then we can have a sibling
+		if prj_dir.starts_with(a_path) {
+			prj_search_paths << os.dir(prj_dir)
+			break
+		}
+	}
 	if is_module {
 		mod_dir = file_dir
 		mod_anchor = os.dir(file_dir)
@@ -142,21 +155,40 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 				break
 			}
 		}
-	} else {
-		for search_path in all_search_paths {
-			mut try_path := os.join_path_single(search_path, mod_path)
+	}else{
+		mut p_root_try := ''
+		mut p := ''
 
-			debug_qualify(pref_.is_verbose, mod, 'tried "${search_path}" + "${mod_path}"')
+		main_loop: for a_path in all_search_paths {
+			p_root_try = a_path
+			for i:=0; i<mod_segs.len; i++ {
 
-			if !os.is_dir(try_path) || !os.exists(try_path) {
-				continue
+				p = os.join_path(p_root_try, mod_segs[i])
+				debug_qualify(pref_.is_verbose, mod, 'd_try[${i}][${mod_segs[i]}] "${a_path}" "${p}"')
+
+				if !os.exists(p) {
+					//Try a modules folder...
+					p = os.join_path(p_root_try, 'modules', mod_segs[i])
+					debug_qualify(pref_.is_verbose, mod, 'd_try[${i}] "${a_path}" "${p}"')
+					if !os.exists(p) {
+						break
+					}
+
+				}
+				p_root_try = p
+				if i == mod_segs.len-1 {
+					debug_qualify(pref_.is_verbose, mod, 'd_try_matched "${p_root_try}"')
+					mod_dir = p_root_try
+					mod_anchor = a_path
+					break main_loop
+				}
 			}
-
-			mod_dir = try_path
-			mod_anchor = search_path // what root we found it
-
-			break
 		}
+	}
+
+	if mod_dir.len == 0 && pref_.is_verbose {
+		debug_qualify(pref_.is_verbose, mod, 'Error not found...')
+
 	}
 
 	if mod_dir in cache.items {
@@ -172,9 +204,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	if pref_.is_verbose {
 		eprintln('> module_resolve( ${mod} ) from "${file_path_in}"')
 		debug_qualify(pref_.is_verbose, mod, 'pref.path = "${prj_dir}"')
-	}
 
-	if pref_.is_verbose {
 		eprintln('> module_resolve(${mod}, ${file_path}) mod.dir = "${mod_dir}"')
 	}
 
@@ -197,7 +227,7 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 	// mut in_std_path := true
 	mut prj_anchor := ''
 
-	if mod_anchor !in std_search_paths {
+	if mod_anchor !in root_search_paths && mod_anchor != prj_dir {
 		// include anchor folder
 		// in_std_path = false
 		prj_anchor = os.base(mod_anchor)
@@ -237,11 +267,12 @@ pub fn resolve_module(pref_ &pref.Preferences, mod string, file_path_in string, 
 		}
 	}
 
-	mod_name = path_parts[anchor_idx..].join('.')
+	mod_name = path_parts[anchor_idx..].filter(it != 'modules').join('.')
 	if mod_name.len > 0 && mod_name[0..1] == '.' {
 		mod_name[1..]
 	}
 
+	//mod_name = mod_name.replace('.modules.', '.')
 	debug_qualify(pref_.is_verbose, mod, 'qmn[] = "${mod_name}"')
 
 	if pref_.is_verbose {
