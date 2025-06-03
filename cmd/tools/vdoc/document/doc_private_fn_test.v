@@ -32,14 +32,17 @@ fn test_get_parent_mod_on_temp_dir() {
 	}
 }
 
+// vlang/cmd/tools/vdoc
+// vlang/cmd/tools/vdoc/vlib/v
+
 fn test_get_parent_mod_normal_cases() {
-	assert '---' == get_parent_mod(os.join_path(@VMODROOT, 'vlib/v')) or {
+	v_root := os.dir(@VEXE)
+	assert '---' == get_parent_mod(os.join_path(v_root, 'vlib/v')) or {
 		assert err.msg() == 'No V files found.'
 		'---'
 	}
-	assert get_parent_mod(os.join_path(@VMODROOT, 'vlib', 'v', 'token'))? == 'v'
-	assert get_parent_mod(os.join_path(@VMODROOT, 'vlib', 'os', 'os.v'))? == 'os'
-	assert get_parent_mod(os.join_path(@VMODROOT, 'cmd'))? == ''
-	assert get_parent_mod(os.join_path(@VMODROOT, 'cmd', 'tools', 'modules', 'testing',
-		'common.v'))? == 'tools.modules.testing'
+	assert get_parent_mod(os.join_path(v_root, 'vlib', 'v', 'token'))? == 'v'
+	assert get_parent_mod(os.join_path(v_root, 'vlib', 'os', 'os.v'))? == 'os'
+	assert get_parent_mod(os.join_path(v_root, 'cmd'))? == ''
+	assert get_parent_mod(os.join_path(v_root, 'cmd', 'tools', 'modules', 'testing', 'common.v'))? == 'testing'
 }

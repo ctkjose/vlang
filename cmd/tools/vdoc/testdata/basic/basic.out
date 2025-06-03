@@ -1,4 +1,4 @@
-module testdata.basic
+module vdoc.testdata.basic
 
 const source_root = 'temp' // some const
 const another = int(5)
