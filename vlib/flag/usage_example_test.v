@@ -1,6 +1,6 @@
 import os
 
-const the_source = 'vlib/flag/testdata/usage_example.v'
+const the_source = 'testdata/usage_example.v'
 
 const the_executable = os.real_path(os.join_path(os.cache_dir(), 'flag_usage_example_app.exe'))
 

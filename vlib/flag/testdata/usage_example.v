@@ -13,5 +13,5 @@ fn main() {
 	fp.footer('footer 1')
 	fp.footer('footer 2')
 	rest_of_args := fp.remaining_parameters()
-	dump(rest_of_args)
+	println(rest_of_args)
 }
