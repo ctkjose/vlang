@@ -10,5 +10,5 @@ fn main() {
 		eprintln(err)
 		exit(1)
 	}
-	dump(rest_of_args)
+	println(rest_of_args)
 }

@@ -1,13 +1,13 @@
 import os
 
-const source = 'vlib/flag/testdata/simplest_flag_program.v'
+const source = 'testdata/simplest_flag_program.v'
 
 const simple_flag_app_executable = os.real_path(os.join_path(os.cache_dir(), 'simple_flag_app.exe'))
 
 fn testsuite_begin() {
 	os.chdir(@VMODROOT) or {}
 	os.rm(simple_flag_app_executable) or {}
-	res := os.execute('${os.quoted_path(@VEXE)} -o ${os.quoted_path(simple_flag_app_executable)} ${os.quoted_path(source)}')
+	res := os.execute('${os.quoted_path(@VEXE)} -o ${os.quoted_path(simple_flag_app_executable)} ./${source}')
 	assert res.exit_code == 0
 	assert os.execute(simple_flag_app_executable).exit_code == 0
 }
